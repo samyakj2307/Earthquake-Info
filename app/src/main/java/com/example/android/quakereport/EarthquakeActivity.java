@@ -15,7 +15,13 @@
  */
 package com.example.android.quakereport;
 
+import android.content.Intent;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ListView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -26,18 +32,61 @@ public class EarthquakeActivity extends AppCompatActivity {
 
     public static final String LOG_TAG = EarthquakeActivity.class.getName();
 
+    private static final String USGS_REQUEST_URL =
+            "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=earthquake&orderby=time&minmag=6&limit=20";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.earthquake_activity);
 
-        // Create a fake list of earthquake locations.
-        ArrayList<EarthQuakeData> earthquakes = QueryUtils.extractEarthquakes();
+        EarthQuakeAsync task = new EarthQuakeAsync();
+        task.execute(USGS_REQUEST_URL);
+    }
+
+    private void updateui(final ArrayList<EarthQuakeData> earthquakes) {
 
         EarthQuakeDataAdapter earthQuakeDataAdapter = new EarthQuakeDataAdapter(this, earthquakes);
 
         // Get a reference to the ListView, and attach the adapter to the listView.
         ListView listView = (ListView) findViewById(R.id.list);
         listView.setAdapter(earthQuakeDataAdapter);
+
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                String url = earthquakes.get(i).getmEarthQuakeUrl();
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setData(Uri.parse(url));
+                startActivity(intent);
+
+            }
+        });
+    }
+
+    private class EarthQuakeAsync extends AsyncTask<String, Void, ArrayList<EarthQuakeData>> {
+
+        @Override
+        protected ArrayList<EarthQuakeData> doInBackground(String... urls) {
+
+            if (urls.length < 1 || urls[0] == null) {
+                return null;
+            }
+
+            final ArrayList<EarthQuakeData> earthquakes = QueryUtils.fetchEarthquakeData(urls[0]);
+            Log.d(LOG_TAG, "completed_background_process");
+            return earthquakes;
+        }
+
+        @Override
+        protected void onPostExecute(ArrayList<EarthQuakeData> earthQuakeData) {
+            super.onPostExecute(earthQuakeData);
+
+            if (earthQuakeData == null) {
+                return;
+            }
+
+            updateui(earthQuakeData);
+        }
     }
 }
